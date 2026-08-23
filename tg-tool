@@ -1,38 +1,41 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="1.3.0-dev"
+VERSION="1.4.0-dev"
 CONFIG_FILE="$ROOT/config/config.json"
+SESSION_FILE="$ROOT/data/telegram.session"
 
-banner() {
-  clear
-  printf '\n╔══════════════════════════════════════╗\n'
-  printf '║          TG-TOOLKIT v%s          ║\n' "$VERSION"
-  printf '║       Telegram Management CLI        ║\n'
-  printf '╚══════════════════════════════════════╝\n\n'
-}
+banner(){ clear; printf '\n╔══════════════════════════════════════╗\n║          TG-TOOLKIT v%s          ║\n║       Telegram Management CLI        ║\n╚══════════════════════════════════════╝\n\n' "$VERSION"; }
+pause(){ printf '\nPress Enter to continue...'; read -r; }
+ok(){ printf '  [✓] %s\n' "$1"; }
+warn(){ printf '  [!] %s\n' "$1"; }
+fail(){ printf '  [✗] %s\n' "$1"; }
 
-pause() { printf '\nPress Enter to continue...'; read -r; }
-ok() { printf '  [✓] %s\n' "$1"; }
-warn() { printf '  [!] %s\n' "$1"; }
-fail() { printf '  [✗] %s\n' "$1"; }
+telegram_connect(){ python "$ROOT/modules/telegram_connect.py" connect; }
+telegram_status(){ python "$ROOT/modules/telegram_connect.py" status; }
+telegram_disconnect(){ python "$ROOT/modules/telegram_connect.py" remove; }
 
-config_exists() { [ -f "$CONFIG_FILE" ]; }
-
-config_menu() {
+telegram_menu(){
   while true; do
     clear
-    printf '\n╔══════════════════════════════════════╗\n'
-    printf '║     TELEGRAM API CONFIGURATION      ║\n'
-    printf '╚══════════════════════════════════════╝\n\n'
-    printf '[1] Configure API ID\n'
-    printf '[2] Configure API Hash\n'
-    printf '[3] Configure Phone\n'
-    printf '[4] Configuration Status\n'
-    printf '[5] Security Check\n'
-    printf '[6] Reset Configuration\n'
-    printf '[0] Back\n\nChoose: '
+    printf '\n╔══════════════════════════════════════╗\n║       TELEGRAM CONNECTION           ║\n╚══════════════════════════════════════╝\n\n'
+    printf '[1] Connect Telegram\n[2] Connection Status\n[3] Disconnect / Remove Session\n[0] Back\n\nChoose: '
+    read -r c
+    case "${c:-}" in
+      1) telegram_connect; pause ;;
+      2) telegram_status; pause ;;
+      3) telegram_disconnect; pause ;;
+      0) return ;;
+      *) printf '\nInvalid option.\n'; pause ;;
+    esac
+  done
+}
+
+config_menu(){
+  while true; do
+    clear
+    printf '\n╔══════════════════════════════════════╗\n║     TELEGRAM API CONFIGURATION      ║\n╚══════════════════════════════════════╝\n\n'
+    printf '[1] Configure API ID\n[2] Configure API Hash\n[3] Configure Phone\n[4] Configuration Status\n[5] Security Check\n[6] Reset Configuration\n[7] Telegram Connection\n[0] Back\n\nChoose: '
     read -r c
     case "${c:-}" in
       1) set_value api_id 'API ID' ;;
@@ -41,176 +44,98 @@ config_menu() {
       4) config_status; pause ;;
       5) security_check; pause ;;
       6) reset_config ;;
+      7) telegram_menu ;;
       0) return ;;
       *) printf '\nInvalid option.\n'; pause ;;
     esac
   done
 }
 
-ensure_config() {
+ensure_config(){
   mkdir -p "$ROOT/config"
   if [ ! -f "$CONFIG_FILE" ]; then
     cat > "$CONFIG_FILE" <<'EOF'
-{
-  "api_id": "",
-  "api_hash": "",
-  "phone": ""
-}
+{"api_id":"","api_hash":"","phone":""}
 EOF
     chmod 600 "$CONFIG_FILE"
   fi
 }
-
-set_value() {
+set_value(){
   local key="$1" label="$2" value
-  ensure_config
-  printf '\n%s: ' "$label"
-  if [ "$key" = "api_hash" ]; then
-    read -r -s value
-    printf '\n'
-  else
-    read -r value
-  fi
+  ensure_config; printf '\n%s: ' "$label"
+  if [ "$key" = api_hash ]; then read -r -s value; printf '\n'; else read -r value; fi
   python - "$CONFIG_FILE" "$key" "$value" <<'PY'
-import json, sys
-path, key, value = sys.argv[1:]
-with open(path, encoding='utf-8') as f:
-    data = json.load(f)
-data[key] = value
-with open(path, 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
+import json,sys
+p,k,v=sys.argv[1:]
+with open(p,encoding='utf-8') as f:d=json.load(f)
+d[k]=v
+with open(p,'w',encoding='utf-8') as f:json.dump(d,f,indent=2);f.write('\n')
 PY
-  chmod 600 "$CONFIG_FILE"
-  ok "$label saved locally."
-  pause
+  chmod 600 "$CONFIG_FILE"; ok "$label saved locally."; pause
 }
-
-config_status() {
-  printf '\nConfiguration Status\n'
-  printf '%s\n' '────────────────────────────────────────'
-  if ! config_exists; then
-    warn 'config/config.json not found'
-    return
-  fi
+config_status(){
+  printf '\nConfiguration Status\n────────────────────────────────────────\n'
+  [ -f "$CONFIG_FILE" ] || { warn 'config/config.json not found'; return; }
   python - "$CONFIG_FILE" <<'PY'
-import json, sys
+import json,sys
 try:
-    with open(sys.argv[1], encoding='utf-8') as f: d=json.load(f)
-except Exception as e:
-    print('  [✗] Invalid JSON configuration')
-    raise SystemExit(0)
-for key, label in [('api_id','API ID'),('api_hash','API Hash'),('phone','Phone')]:
-    value=str(d.get(key,'')).strip()
-    if value:
-        if key == 'api_hash': value='configured (hidden)'
-        elif key == 'phone' and len(value) > 6: value=value[:3]+'*'*(len(value)-6)+value[-3:]
-        print(f'  [✓] {label}: {value}')
-    else:
-        print(f'  [!] {label}: not configured')
+ with open(sys.argv[1],encoding='utf-8') as f:d=json.load(f)
+except Exception: print('  [✗] Invalid JSON configuration');raise SystemExit
+for k,l in [('api_id','API ID'),('api_hash','API Hash'),('phone','Phone')]:
+ v=str(d.get(k,'')).strip()
+ if v:
+  if k=='api_hash':v='configured (hidden)'
+  elif k=='phone' and len(v)>6:v=v[:3]+'*'*(len(v)-6)+v[-3:]
+  print(f'  [✓] {l}: {v}')
+ else:print(f'  [!] {l}: not configured')
 PY
 }
-
-security_check() {
-  printf '\nConfiguration Security Check\n'
-  printf '%s\n' '────────────────────────────────────────'
+security_check(){
+  printf '\nConfiguration Security Check\n────────────────────────────────────────\n'
   if [ -f "$CONFIG_FILE" ]; then
-    perms="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || stat -f '%Lp' "$CONFIG_FILE" 2>/dev/null || printf 'unknown')"
-    if [ "$perms" = "600" ]; then ok 'config/config.json permissions: 600'; else warn "config/config.json permissions: $perms (recommended: 600)"; fi
+    p="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || stat -f '%Lp' "$CONFIG_FILE" 2>/dev/null || printf unknown)"
+    [ "$p" = 600 ] && ok 'config/config.json permissions: 600' || warn "config/config.json permissions: $p (recommended: 600)"
   else warn 'config/config.json does not exist'; fi
-  if git -C "$ROOT" check-ignore -q config/config.json 2>/dev/null; then ok 'config/config.json is ignored by Git'; else fail 'config/config.json is NOT ignored by Git'; fi
-  if git -C "$ROOT" ls-files --error-unmatch config/config.json >/dev/null 2>&1; then fail 'config/config.json is tracked by Git'; else ok 'config/config.json is not tracked by Git'; fi
-  printf '\nSecrets are never printed by this check.\n'
+  git -C "$ROOT" check-ignore -q config/config.json 2>/dev/null && ok 'config/config.json is ignored by Git' || fail 'config/config.json is NOT ignored by Git'
+  git -C "$ROOT" ls-files --error-unmatch config/config.json >/dev/null 2>&1 && fail 'config/config.json is tracked by Git' || ok 'config/config.json is not tracked by Git'
+  git -C "$ROOT" check-ignore -q data/telegram.session 2>/dev/null && ok 'Telegram session is ignored by Git' || warn 'Telegram session ignore rule not detected'
+  printf '\nSecrets and sessions are never printed by this check.\n'
+}
+reset_config(){ printf '\nThis removes the local Telegram configuration.\nContinue? [y/N] '; read -r a; case "${a:-}" in y|Y) rm -f "$CONFIG_FILE";ok 'Local configuration removed.';;*)printf 'Cancelled.\n';;esac;pause; }
+
+doctor(){
+ printf '\nTG-TOOLKIT System Doctor v1.1\n────────────────────────────────────────\n';local p=0 w=0 e=0
+ if [ -d /data/data/com.termux/files/usr ];then ok 'Termux environment';((p+=1));else fail 'Termux environment';((e+=1));fi
+ if [ -n "${SHELL:-}" ];then ok "Shell: $SHELL";((p+=1));else warn 'Shell: unknown';((w+=1));fi
+ command -v bash >/dev/null 2>&1&&{ ok "Bash: $(bash --version|head -n1)";((p+=1));}||{ fail 'Bash: not installed';((e+=1));}
+ command -v git >/dev/null 2>&1&&{ ok "Git: $(git --version)";((p+=1));}||{ fail 'Git: not installed';((e+=1));}
+ command -v python >/dev/null 2>&1&&{ ok "Python: $(python --version 2>&1)";((p+=1));}||{ warn 'Python: not installed';((w+=1));}
+ command -v curl >/dev/null 2>&1&&{ ok 'Curl: installed';((p+=1));}||{ warn 'Curl: not installed';((w+=1));}
+ for d in config modules data logs;do [ -d "$ROOT/$d" ]&&{ ok "Directory: $d/";((p+=1));}||{ warn "Directory missing: $d/";((w+=1));};done
+ [ -d "$ROOT/.git" ]&&{ ok 'Git checkout detected';((p+=1));}||{ fail 'Git checkout not detected';((e+=1));}
+ [ -n "$(git -C "$ROOT" remote get-url origin 2>/dev/null||true)" ]&&{ ok 'Git remote configured';((p+=1));}||{ warn 'Git remote not configured';((w+=1));}
+ [ -n "$(git -C "$ROOT" branch --show-current 2>/dev/null||true)" ]&&{ ok "Git branch: $(git -C "$ROOT" branch --show-current)";((p+=1));}||{ warn 'Git branch unknown';((w+=1));}
+ command -v curl >/dev/null 2>&1&&curl -fsS --max-time 8 -o /dev/null https://github.com&&{ ok 'Internet/GitHub connectivity';((p+=1));}||{ warn 'Internet/GitHub connectivity unavailable';((w+=1));}
+ printf '────────────────────────────────────────\nPASS: %d   WARNING: %d   ERROR: %d\n' "$p" "$w" "$e"
+ [ "$e" -gt 0 ]&&printf 'Status: ERROR\n'||{ [ "$w" -gt 0 ]&&printf 'Status: READY WITH WARNINGS\n'||printf 'Status: READY\n';};printf '\nSecurity: secrets, API hashes and Telegram sessions are not displayed by Doctor.\n'
+}
+update(){
+ printf '\nChecking GitHub for updates...\n';command -v git >/dev/null 2>&1||{ printf 'Git is not installed. Run: pkg install git\n';return;};[ -d "$ROOT/.git" ]||{ printf 'This copy is not a Git checkout.\n';return;}
+ if ! git -C "$ROOT" diff --quiet||! git -C "$ROOT" diff --cached --quiet;then warn 'Local tracked changes detected. Update stopped to protect your work.';printf 'Review with: git status\n';return;fi
+ git -C "$ROOT" fetch --quiet origin main;local l r;l=$(git -C "$ROOT" rev-parse HEAD);r=$(git -C "$ROOT" rev-parse origin/main)
+ if [ "$l" = "$r" ];then ok 'Already up to date.';else printf 'Update available. Local: %.12s Remote: %.12s\nApply fast-forward update now? [y/N] ' "$l" "$r";read -r a;case "${a:-}" in y|Y)git -C "$ROOT" merge --ff-only origin/main;ok 'Update completed.';;*)printf 'Update cancelled.\n';;esac;fi
+ printf 'Local commit : %.12s\n' "$(git -C "$ROOT" rev-parse HEAD)"
 }
 
-reset_config() {
-  printf '\nThis removes the local Telegram configuration.\nContinue? [y/N] '
-  read -r answer
-  case "${answer:-}" in
-    y|Y) rm -f "$CONFIG_FILE"; ok 'Local configuration removed.'; pause ;;
-    *) printf 'Cancelled.\n'; pause ;;
-  esac
-}
+case "${1:-}" in
+doctor)doctor;exit 0;;update)update;exit 0;;config)config_menu;exit 0;;connect)telegram_connect;exit 0;;connection-status|status)telegram_status;exit 0;;disconnect|remove-session)telegram_disconnect;exit 0;;version)printf '%s\n' "$VERSION";exit 0;;help)printf 'Usage: tg-tool [doctor|update|config|connect|connection-status|disconnect|version|help]\n';exit 0;;esac
 
-doctor() {
-  printf '\nTG-TOOLKIT System Doctor v1.1\n'
-  printf '%s\n' '────────────────────────────────────────'
-  local pass=0 warn_count=0 fail_count=0
-  if [ -d /data/data/com.termux/files/usr ]; then ok 'Termux environment'; pass=$((pass+1)); else fail 'Termux environment'; fail_count=$((fail_count+1)); fi
-  if [ -n "${SHELL:-}" ]; then ok "Shell: ${SHELL}"; pass=$((pass+1)); else warn 'Shell: unknown'; warn_count=$((warn_count+1)); fi
-  if command -v bash >/dev/null 2>&1; then ok "Bash: $(bash --version | head -n1)"; pass=$((pass+1)); else fail 'Bash: not installed'; fail_count=$((fail_count+1)); fi
-  if command -v git >/dev/null 2>&1; then ok "Git: $(git --version)"; pass=$((pass+1)); else fail 'Git: not installed'; fail_count=$((fail_count+1)); fi
-  if command -v python >/dev/null 2>&1; then ok "Python: $(python --version 2>&1)"; pass=$((pass+1)); else warn 'Python: not installed'; warn_count=$((warn_count+1)); fi
-  if command -v curl >/dev/null 2>&1; then ok 'Curl: installed'; pass=$((pass+1)); else warn 'Curl: not installed'; warn_count=$((warn_count+1)); fi
-  if [ -d "$ROOT" ]; then ok "Project: $ROOT"; pass=$((pass+1)); else fail 'Project directory missing'; fail_count=$((fail_count+1)); fi
-  for dir in config modules data logs; do if [ -d "$ROOT/$dir" ]; then ok "Directory: $dir/"; pass=$((pass+1)); else warn "Directory missing: $dir/"; warn_count=$((warn_count+1)); fi; done
-  if [ -d "$ROOT/.git" ]; then
-    ok 'Git checkout detected'; pass=$((pass+1))
-    remote="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
-    if [ -n "$remote" ]; then ok 'Git remote configured'; pass=$((pass+1)); else warn 'Git remote: not configured'; warn_count=$((warn_count+1)); fi
-    branch="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
-    if [ -n "$branch" ]; then ok "Git branch: $branch"; pass=$((pass+1)); else warn 'Git branch: unknown'; warn_count=$((warn_count+1)); fi
-  else fail 'Git checkout not detected'; fail_count=$((fail_count+1)); fi
-  if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 8 -o /dev/null https://github.com; then ok 'Internet/GitHub connectivity'; pass=$((pass+1)); else warn 'Internet/GitHub connectivity unavailable'; warn_count=$((warn_count+1)); fi
-  printf '%s\n' '────────────────────────────────────────'
-  printf 'PASS: %d   WARNING: %d   ERROR: %d\n' "$pass" "$warn_count" "$fail_count"
-  if [ "$fail_count" -gt 0 ]; then printf 'Status: ERROR\n'; elif [ "$warn_count" -gt 0 ]; then printf 'Status: READY WITH WARNINGS\n'; else printf 'Status: READY\n'; fi
-  printf '\nSecurity: secrets, API hashes and Telegram sessions are not displayed by Doctor.\n'
-}
-
-update() {
-  printf '\nChecking GitHub for updates...\n'
-  if ! command -v git >/dev/null 2>&1; then printf 'Git is not installed. Run: pkg install git\n'; return; fi
-  if [ ! -d "$ROOT/.git" ]; then printf 'This copy is not a Git checkout. Install it from GitHub to enable updates.\n'; return; fi
-  if ! git -C "$ROOT" diff --quiet || ! git -C "$ROOT" diff --cached --quiet; then
-    warn 'Local tracked changes detected. Update stopped to protect your work.'
-    printf 'Review with: git status\n'
-    return
-  fi
-  git -C "$ROOT" fetch --quiet origin main
-  local local_commit remote_commit
-  local_commit="$(git -C "$ROOT" rev-parse HEAD)"
-  remote_commit="$(git -C "$ROOT" rev-parse origin/main)"
-  if [ "$local_commit" = "$remote_commit" ]; then
-    ok 'Already up to date.'
-  else
-    printf 'Update available. Local: %.12s  Remote: %.12s\n' "$local_commit" "$remote_commit"
-    printf 'Apply fast-forward update now? [y/N] '
-    read -r answer
-    case "${answer:-}" in
-      y|Y) git -C "$ROOT" merge --ff-only origin/main; ok 'Update completed.' ;;
-      *) printf 'Update cancelled.\n' ;;
-    esac
-  fi
-  printf 'Local commit : %.12s\n' "$(git -C "$ROOT" rev-parse HEAD)"
-}
-
-if [ "${1:-}" = "doctor" ]; then doctor; exit 0; fi
-if [ "${1:-}" = "update" ]; then update; exit 0; fi
-if [ "${1:-}" = "config" ]; then config_menu; exit 0; fi
-if [ "${1:-}" = "version" ]; then printf '%s\n' "$VERSION"; exit 0; fi
-if [ "${1:-}" = "help" ]; then printf 'Usage: tg-tool [doctor|update|config|version|help]\n'; exit 0; fi
-
-while true; do
-  banner
-  printf '[1] 👤 Username Tools\n'
-  printf '[2] 📱 Contact & Privacy\n'
-  printf '[3] 👥 Group Manager\n'
-  printf '[4] 📊 Analytics\n'
-  printf '[5] 🔗 Invite Manager\n'
-  printf '[6] 📁 CSV Tools\n'
-  printf '[7] 🛡️ Security\n'
-  printf '[8] ⚙️ Settings\n'
-  printf '[9] 🩺 System Doctor\n'
-  printf '[U] 🔄 Check Updates\n'
-  printf '[0] 🚪 Exit\n\nChoose: '
-  read -r choice
-  case "${choice:-}" in
-    1|2|3|4|5|6|7) printf '\nModule coming in the next release.\n'; pause ;;
-    8) config_menu ;;
-    9) doctor; pause ;;
-    u|U) update; pause ;;
-    0) exit 0 ;;
-    *) printf '\nInvalid option.\n'; pause ;;
-  esac
+while true;do
+ banner
+ printf '[1] 👤 Username Tools\n[2] 📱 Contact & Privacy\n[3] 👥 Group Manager\n[4] 📊 Analytics\n[5] 🔗 Invite Manager\n[6] 📁 CSV Tools\n[7] 🛡️ Security\n[8] ⚙️ Settings\n[9] 🩺 System Doctor\n[U] 🔄 Check Updates\n[0] 🚪 Exit\n\nChoose: '
+ read -r choice
+ case "${choice:-}" in
+  1|2|3|4|5|6|7)printf '\nModule coming in the next release.\n';pause;;
+  8)config_menu;;9)doctor;pause;;u|U)update;pause;;0)exit 0;;*)printf '\nInvalid option.\n';pause;;
+ esac
 done

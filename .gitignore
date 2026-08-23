@@ -1,0 +1,21 @@
+# Secrets and local sessions
+.env
+.env.*
+*.session
+*.session-journal
+config/local*
+config/secrets*
+
+# Runtime data
+logs/*
+data/*
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Termux/editor files
+.DS_Store
+.idea/
+.vscode/

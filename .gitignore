@@ -7,16 +7,19 @@ config/local*
 config/secrets*
 config/config.json
 
+# Node & Build artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+
 # Runtime data
 logs/*
 data/*
 *.log
 
-# Python cache
-__pycache__/
-*.py[cod]
-
 # Termux/editor files
 .DS_Store
 .idea/
 .vscode/
+

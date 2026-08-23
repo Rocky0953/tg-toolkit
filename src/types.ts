@@ -78,6 +78,30 @@ export interface InviteLinkRecord {
   expiresAt: string;
 }
 
+export interface UsernameToNumberResult {
+  username: string;
+  name: string;
+  userId: string;
+  numericId: number;
+  dc: number;
+  dcLocation: string;
+  phoneStatus: 'available' | 'revealed_via_contacts' | 'hidden_by_privacy' | 'not_applicable';
+  phoneNumber: string;
+  phoneRaw: string;
+  country: string;
+  countryCode: string;
+  countryFlag: string;
+  carrier: string;
+  lineType: 'Mobile' | 'VoIP' | 'Landline' | 'Virtual';
+  accountType: 'User' | 'Bot' | 'Channel' | 'Group';
+  accessHash: string;
+  isMutualContact: boolean;
+  tgDeepLink: string;
+  whatsappLink: string;
+  telLink: string;
+  resolvedAt: string;
+}
+
 export type ActiveTab =
   | 'overview'
   | 'terminal'

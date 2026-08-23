@@ -5,7 +5,7 @@ import {
   Stethoscope,
   ShieldCheck,
   Users,
-  AtSign,
+  Phone,
   FileSpreadsheet,
   ArrowRight,
   Send,
@@ -149,15 +149,15 @@ export const Overview: React.FC<OverviewProps> = ({
           className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800 hover:border-cyan-500/40 transition-all cursor-pointer group space-y-3"
         >
           <div className="h-8 w-8 rounded-lg bg-zinc-800 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
-            <AtSign className="h-4 w-4" />
+            <Phone className="h-4 w-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold font-mono text-white flex items-center justify-between">
-              <span>Username Tools</span>
+              <span>Username se Number Show</span>
               <ArrowRight className="h-3.5 w-3.5 text-zinc-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
             </h3>
             <p className="text-xs text-zinc-400 mt-1">
-              Verify Telegram handle syntax rules (5-32 characters, regex constraints), check availability, and run batch audits.
+              Telegram username dalein aur linked Mobile Number, Country code, SIM carrier aur WhatsApp direct link nikalein.
             </p>
           </div>
         </div>

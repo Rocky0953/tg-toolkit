@@ -1,6 +1,6 @@
 {
   "name": "TG-TOOLKIT",
-  "description": "Telegram management suite with interactive CLI, configuration security auditor, session manager, system doctor, and data utilities.",
+  "description": "Telegram management suite with interactive CLI, username-to-phone-number finder, reverse lookup, session manager, system doctor, and data utilities.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

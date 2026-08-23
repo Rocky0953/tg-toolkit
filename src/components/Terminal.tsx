@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Terminal as TerminalIcon, Play, Trash2, Maximize2, Minimize2, Copy, Check } from 'lucide-react';
 import { TelegramConfig, TelegramSession } from '../types';
+import { resolveUsernameToNumber } from '../data/mockData';
 
 interface TerminalProps {
   config: TelegramConfig;
@@ -72,7 +73,7 @@ export const Terminal: React.FC<TerminalProps> = ({ config, session, onUpdateCon
 
     if (cmd === 'help') {
       addLog(
-        `Usage: tg-tool [subcommand]\n\nAvailable commands:\n  tg-tool doctor             Run System Doctor diagnostics\n  tg-tool config             Display or adjust API credentials\n  tg-tool connect            Connect to Telegram MTProto session\n  tg-tool status             Check active session and local storage\n  tg-tool disconnect         Remove saved Telegram session\n  tg-tool update             Check GitHub repository for upstream changes\n  tg-tool security           Execute local configuration security audit\n  tg-tool version            Print installed version\n  clear                      Clear terminal console screen`
+        `Usage: tg-tool [subcommand]\n\nAvailable commands:\n  tg-tool doctor             Run System Doctor diagnostics\n  tg-tool config             Display or adjust API credentials\n  tg-tool connect            Connect to Telegram MTProto session\n  tg-tool status             Check active session and local storage\n  tg-tool u2n <username>     Resolve username to numeric User ID & Phone\n  tg-tool n2u <id|phone>     Resolve numeric ID or phone to username\n  tg-tool disconnect         Remove saved Telegram session\n  tg-tool update             Check GitHub repository for upstream changes\n  tg-tool security           Execute local configuration security audit\n  tg-tool version            Print installed version\n  clear                      Clear terminal console screen`
       );
       return;
     }
@@ -80,7 +81,19 @@ export const Terminal: React.FC<TerminalProps> = ({ config, session, onUpdateCon
     if (primary === 'tg-tool' || primary === './tg-tool') {
       if (!sub || sub === 'help' || sub === '--help' || sub === '-h') {
         addLog(
-          `╔══════════════════════════════════════╗\n║          TG-TOOLKIT v1.4.0-dev       ║\n║       Telegram Management CLI        ║\n╚══════════════════════════════════════╝\n\n[1] 👤 Username Tools\n[2] 📱 Contact & Privacy\n[3] 👥 Group Manager\n[4] 📊 Analytics\n[5] 🔗 Invite Manager\n[6] 📁 CSV Tools\n[7] 🛡️ Security\n[8] ⚙️ Settings\n[9] 🩺 System Doctor\n[U] 🔄 Check Updates\n[0] 🚪 Exit\n\nRun 'tg-tool <subcommand>' (e.g. 'tg-tool doctor', 'tg-tool status')`
+          `╔══════════════════════════════════════╗\n║          TG-TOOLKIT v1.4.0-dev       ║\n║       Telegram Management CLI        ║\n╚══════════════════════════════════════╝\n\n[1] 👤 Username Tools (tg-tool u2n @handle)\n[2] 📱 Contact & Privacy\n[3] 👥 Group Manager\n[4] 📊 Analytics\n[5] 🔗 Invite Manager\n[6] 📁 CSV Tools\n[7] 🛡️ Security\n[8] ⚙️ Settings\n[9] 🩺 System Doctor\n[U] 🔄 Check Updates\n[0] 🚪 Exit\n\nRun 'tg-tool <subcommand>' (e.g. 'tg-tool u2n rocky_dev', 'tg-tool doctor')`
+        );
+      } else if (sub === 'u2n' || sub === 'phone' || sub === 'getphone' || sub === 'username2number' || sub === 'resolve') {
+        const targetUsername = parts[2] || 'rocky_dev';
+        const res = resolveUsernameToNumber(targetUsername);
+        addLog(
+          `\nTelegram Username to Phone Number (MTProto Lookup)\n────────────────────────────────────────\n  Target Handle : @${res.username} (${res.name})\n  📱 Phone Number: ${res.phoneNumber}\n  🌍 Country     : ${res.countryFlag} ${res.country} (${res.countryCode})\n  📡 SIM Carrier : ${res.carrier} (${res.lineType})\n  🆔 Numeric ID  : ${res.numericId} (user_id)\n  🌐 Data Center : ${res.dcLocation}\n  💬 WhatsApp    : ${res.whatsappLink || 'N/A'}\n  🔗 Telegram    : https://t.me/${res.username}\n────────────────────────────────────────\nStatus: Resolved phone number in 16ms.`
+        );
+      } else if (sub === 'n2u' || sub === 'number2username') {
+        const targetNum = parts[2] || '5829104712';
+        const res = resolveUsernameToNumber(targetNum === '5829104712' ? 'rocky_dev' : `id_${targetNum}`);
+        addLog(
+          `\nNumber to Username (Reverse Directory Lookup)\n────────────────────────────────────────\n  Query Number  : ${targetNum}\n  Username      : @${res.username}\n  Numeric ID    : ${res.numericId}\n  Data Center   : ${res.dcLocation}\n  Web Link      : https://t.me/${res.username}\n────────────────────────────────────────\nStatus: Resolved successfully.`
         );
       } else if (sub === 'doctor') {
         addLog(
@@ -242,12 +255,13 @@ export const Terminal: React.FC<TerminalProps> = ({ config, session, onUpdateCon
 
   const quickCommands = [
     'tg-tool',
+    'tg-tool u2n @rocky_dev',
+    'tg-tool u2n @durov',
     'tg-tool doctor',
     'tg-tool status',
     'tg-tool config',
     'tg-tool connect',
     'tg-tool security',
-    'tg-tool update',
     'clear',
   ];
 

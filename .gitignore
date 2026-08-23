@@ -5,6 +5,7 @@
 *.session-journal
 config/local*
 config/secrets*
+config/config.json
 
 # Runtime data
 logs/*

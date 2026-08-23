@@ -1,0 +1,71 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION="1.0.0-dev"
+
+banner() {
+  clear
+  printf '\n╔══════════════════════════════════════╗\n'
+  printf '║          TG-TOOLKIT v%s          ║\n' "$VERSION"
+  printf '║       Telegram Management CLI        ║\n'
+  printf '╚══════════════════════════════════════╝\n\n'
+}
+
+pause() {
+  printf '\nPress Enter to continue...'
+  read -r
+}
+
+menu() {
+  banner
+  printf '[1] 👤 Username Tools\n'
+  printf '[2] 📱 Contact & Privacy\n'
+  printf '[3] 👥 Group Manager\n'
+  printf '[4] 📊 Analytics\n'
+  printf '[5] 🔗 Invite Manager\n'
+  printf '[6] 📁 CSV Tools\n'
+  printf '[7] 🛡️ Security\n'
+  printf '[8] ⚙️ Settings\n'
+  printf '[9] 🩺 System Doctor\n'
+  printf '[U] 🔄 Check Updates\n'
+  printf '[0] 🚪 Exit\n\n'
+  printf 'Choose: '
+  read -r choice
+
+  case "${choice:-}" in
+    1|2|3|4|5|6|7|8) printf '\nModule coming in the next release.\n'; pause ;;
+    9) doctor; pause ;;
+    u|U) update; pause ;;
+    0) exit 0 ;;
+    *) printf '\nInvalid option.\n'; pause ;;
+  esac
+}
+
+doctor() {
+  printf '\nTG-TOOLKIT System Doctor\n'
+  printf '%-18s %s\n' 'Shell:' "${SHELL:-unknown}"
+  printf '%-18s %s\n' 'Bash:' "$(bash --version | head -n1)"
+  printf '%-18s %s\n' 'Git:' "$(git --version 2>/dev/null || printf 'not installed')"
+  printf '%-18s %s\n' 'Project:' "$ROOT"
+}
+
+update() {
+  printf '\nChecking GitHub for updates...\n'
+  if ! command -v git >/dev/null 2>&1; then
+    printf 'Git is not installed. Run: pkg install git\n'
+    return
+  fi
+  if [ ! -d "$ROOT/.git" ]; then
+    printf 'This copy is not a Git checkout. Install it from GitHub to enable updates.\n'
+    return
+  fi
+  git -C "$ROOT" pull --ff-only
+}
+
+if [ "${1:-}" = "doctor" ]; then doctor; exit 0; fi
+if [ "${1:-}" = "update" ]; then update; exit 0; fi
+if [ "${1:-}" = "version" ]; then printf '%s\n' "$VERSION"; exit 0; fi
+if [ "${1:-}" = "help" ]; then printf 'Usage: tg-tool [doctor|update|version|help]\n'; exit 0; fi
+
+while true; do menu; done
